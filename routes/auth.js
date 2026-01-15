@@ -17,20 +17,22 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const users = await executeQuery(
-      `SELECT 
+    const query = `SELECT 
         u.user_id,
-        u.user_name,
-        u.user_email,
-        u.user_password,
-        u.user_mobile,
-        u.user_status,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.password,
+        u.mobile_phone_number,
         r.role_name as role
       FROM 91wheels_users u
       LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
-      WHERE u.user_email = ?`,
-      [email]
-    );
+      WHERE u.email = ?`;
+    
+    console.log('Executing login query:', query);
+    console.log('Query parameters:', [email]);
+    
+    const users = await executeQuery(query, [email]);
 
     if (!users || users.length === 0) {
       return res.status(401).json({
@@ -41,20 +43,16 @@ router.post('/login', async (req, res) => {
 
     const user = users[0];
 
-    if (user.user_status !== 1) {
-      return res.status(401).json({
-        success: false,
-        error: 'Account is inactive'
-      });
-    }
-
-    const isPasswordValid = verifyPassword(password, user.user_password);
+    const isPasswordValid = verifyPassword(password, user.password);
+    
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password'
       });
     }
+    
+    console.log('✅ Login successful for user:', user.user_id);
 
     const token = generateToken({ userId: user.user_id });
 
@@ -66,6 +64,13 @@ router.post('/login', async (req, res) => {
     });
 
     const userWithPermissions = await getUserWithPermissions(user.user_id);
+
+    if (!userWithPermissions) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to load user permissions'
+      });
+    }
 
     res.json({
       success: true,

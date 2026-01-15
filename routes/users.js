@@ -18,15 +18,15 @@ router.get('/', authMiddleware, requirePermission('users', 'read'), async (req, 
     let queryParams = [];
 
     if (search) {
-      whereConditions.push('(u.user_name LIKE ? OR u.user_email LIKE ? OR u.user_mobile LIKE ?)');
+      whereConditions.push('(u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR u.mobile_phone_number LIKE ?)');
       const searchPattern = `%${search}%`;
-      queryParams.push(searchPattern, searchPattern, searchPattern);
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern);
     }
 
     if (status === 'active') {
-      whereConditions.push('u.user_status = 1');
+      whereConditions.push('u.backend_access_allowed = 1');
     } else if (status === 'inactive') {
-      whereConditions.push('u.user_status = 0');
+      whereConditions.push('u.backend_access_allowed = 0');
     }
 
     if (roleId !== 'all') {
@@ -45,18 +45,18 @@ router.get('/', authMiddleware, requirePermission('users', 'read'), async (req, 
     const users = await executeQuery(`
       SELECT 
         u.user_id as id,
-        u.user_name as name,
-        u.user_email as email,
-        u.user_mobile as mobile,
-        u.user_status as status,
+        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.email,
+        u.mobile_phone_number as mobile,
+        u.backend_access_allowed as status,
         u.role_id,
         r.role_name as role,
-        u.user_added as created_at,
-        u.user_updated as updated_at
+        u.created_at,
+        u.updated_at
       FROM 91wheels_users u
       LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
       ${whereClause}
-      ORDER BY u.user_added DESC
+      ORDER BY u.created_at DESC
       LIMIT ? OFFSET ?
     `, [...queryParams, limit, offset]);
 
@@ -85,14 +85,14 @@ router.get('/:id', authMiddleware, requirePermission('users', 'read'), async (re
     const users = await executeQuery(
       `SELECT 
         u.user_id as id,
-        u.user_name as name,
-        u.user_email as email,
-        u.user_mobile as mobile,
-        u.user_status as status,
+        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.email,
+        u.mobile_phone_number as mobile,
+        u.backend_access_allowed as status,
         u.role_id,
         r.role_name as role,
-        u.user_added as created_at,
-        u.user_updated as updated_at
+        u.created_at,
+        u.updated_at
       FROM 91wheels_users u
       LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
       WHERE u.user_id = ?`,
@@ -153,7 +153,7 @@ router.post('/', authMiddleware, requirePermission('users', 'create'), async (re
 
     // Check if email already exists
     const existingUsers = await executeQuery(
-      'SELECT user_id FROM 91wheels_users WHERE user_email = ?',
+      'SELECT user_id FROM 91wheels_users WHERE email = ?',
       [email]
     );
 
@@ -166,24 +166,28 @@ router.post('/', authMiddleware, requirePermission('users', 'create'), async (re
 
     const encryptedPassword = encryptPassword(password);
 
+    const nameParts = name.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     const result = await executeQuery(
       `INSERT INTO 91wheels_users 
-       (user_name, user_email, user_mobile, user_password, role_id, user_status, user_added, user_updated) 
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [name, email, mobile || '', encryptedPassword, role_id, parseInt(status) || 1]
+       (first_name, last_name, email, mobile_phone_number, password, role_id, backend_access_allowed, created_at, updated_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [firstName, lastName, email, mobile || '', encryptedPassword, role_id, parseInt(status) || 1]
     );
 
     const newUser = await executeQuery(
       `SELECT 
         u.user_id as id,
-        u.user_name as name,
-        u.user_email as email,
-        u.user_mobile as mobile,
-        u.user_status as status,
+        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.email,
+        u.mobile_phone_number as mobile,
+        u.backend_access_allowed as status,
         u.role_id,
         r.role_name as role,
-        u.user_added as created_at,
-        u.user_updated as updated_at
+        u.created_at,
+        u.updated_at
        FROM 91wheels_users u
        LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
        WHERE u.user_id = ?`,
@@ -218,7 +222,7 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
 
     // Check if email already exists for another user
     const existingUsers = await executeQuery(
-      'SELECT user_id FROM 91wheels_users WHERE user_email = ? AND user_id != ?',
+      'SELECT user_id FROM 91wheels_users WHERE email = ? AND user_id != ?',
       [email, req.params.id]
     );
 
@@ -229,13 +233,17 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
       });
     }
 
+    const nameParts = name.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     let query = `UPDATE 91wheels_users 
-                 SET user_name = ?, user_email = ?, user_mobile = ?, role_id = ?, user_status = ?, user_updated = CURRENT_TIMESTAMP`;
-    let params = [name, email, mobile || '', role_id, parseInt(status) || 1];
+                 SET first_name = ?, last_name = ?, email = ?, mobile_phone_number = ?, role_id = ?, backend_access_allowed = ?, updated_at = CURRENT_TIMESTAMP`;
+    let params = [firstName, lastName, email, mobile || '', role_id, parseInt(status) || 1];
 
     if (password) {
       const encryptedPassword = encryptPassword(password);
-      query += ', user_password = ?';
+      query += ', password = ?';
       params.push(encryptedPassword);
     }
 
@@ -247,14 +255,14 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
     const updatedUser = await executeQuery(
       `SELECT 
         u.user_id as id,
-        u.user_name as name,
-        u.user_email as email,
-        u.user_mobile as mobile,
-        u.user_status as status,
+        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.email,
+        u.mobile_phone_number as mobile,
+        u.backend_access_allowed as status,
         u.role_id,
         r.role_name as role,
-        u.user_added as created_at,
-        u.user_updated as updated_at
+        u.created_at,
+        u.updated_at
        FROM 91wheels_users u
        LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
        WHERE u.user_id = ?`,
@@ -279,7 +287,7 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
 router.delete('/:id', authMiddleware, requirePermission('users', 'delete'), async (req, res) => {
   try {
     await executeQuery(
-      'UPDATE 91wheels_users SET user_status = 0 WHERE user_id = ?',
+      'UPDATE 91wheels_users SET backend_access_allowed = 0 WHERE user_id = ?',
       [req.params.id]
     );
 

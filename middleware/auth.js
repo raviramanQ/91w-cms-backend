@@ -3,20 +3,23 @@ const { executeQuery } = require('../config/database');
 
 async function getUserWithPermissions(userId) {
   try {
-    const users = await executeQuery(
-      `SELECT 
+    console.log('getUserWithPermissions---', userId);
+    
+    const query = `SELECT 
         u.user_id as id,
-        u.user_name as name,
-        u.user_email as email,
-        u.user_mobile as mobile,
-        u.user_status as status,
+        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.email,
+        u.mobile_phone_number as mobile,
         r.role_id,
         r.role_name as role
       FROM 91wheels_users u
       LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
-      WHERE u.user_id = ? AND u.user_status = 1`,
-      [userId]
-    );
+      WHERE u.user_id = ?`;
+    
+    console.log('Executing getUserWithPermissions query:', query);
+    console.log('Query parameters:', [userId]);
+    
+    const users = await executeQuery(query, [userId]);
 
     if (!users || users.length === 0) {
       return null;
@@ -24,16 +27,13 @@ async function getUserWithPermissions(userId) {
 
     const user = users[0];
 
-    // Get user permissions
+    // Get user permissions from user_role_module_permissions table
     const permissions = await executeQuery(
       `SELECT 
-        m.module_name as module,
-        GROUP_CONCAT(p.permission_name) as actions
-      FROM 91wheels_role_permissions rp
-      JOIN 91wheels_permissions p ON rp.permission_id = p.permission_id
-      JOIN 91wheels_modules m ON p.module_id = m.module_id
-      WHERE rp.role_id = ? AND rp.status = 1
-      GROUP BY m.module_name`,
+        module_id as module,
+        permissions as actions
+      FROM 91wheels_user_role_module_permissions
+      WHERE role_id = ?`,
       [user.role_id]
     );
 
