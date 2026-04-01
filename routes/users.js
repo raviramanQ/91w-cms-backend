@@ -50,13 +50,11 @@ router.get('/', authMiddleware, requirePermission('users', 'read'), async (req, 
         u.mobile_phone_number as mobile,
         u.backend_access_allowed as status,
         u.role_id,
-        r.role_name as role,
-        u.created_at,
-        u.updated_at
+        r.role_name as role
       FROM 91wheels_users u
       LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
       ${whereClause}
-      ORDER BY u.created_at DESC
+      ORDER BY u.user_id DESC
       LIMIT ? OFFSET ?
     `, [...queryParams, limit, offset]);
 
