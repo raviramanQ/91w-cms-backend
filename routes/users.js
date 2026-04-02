@@ -45,7 +45,8 @@ router.get('/', authMiddleware, requirePermission('users', 'read'), async (req, 
     const users = await executeQuery(`
       SELECT 
         u.user_id as id,
-        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.first_name,
+        u.last_name,
         u.email,
         u.mobile_phone_number as mobile,
         u.backend_access_allowed as status,
