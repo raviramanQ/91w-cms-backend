@@ -141,12 +141,13 @@ router.get('/:id', authMiddleware, requirePermission('users', 'read'), async (re
 // Create user
 router.post('/', authMiddleware, requirePermission('users', 'create'), async (req, res) => {
   try {
-    const { name, email, mobile, password, role_id, status } = req.body;
+    console.log('----????????', req.body);
+    const { first_name,last_name,email, password, role_id, status } = req.body;
 
-    if (!name || !email || !password || !role_id) {
+    if (!first_name || !email || !password || !role_id) {
       return res.status(400).json({
         success: false,
-        error: 'Name, email, password, and role are required'
+        error: 'first_name, email, password, and role are required'
       });
     }
 
@@ -165,28 +166,27 @@ router.post('/', authMiddleware, requirePermission('users', 'create'), async (re
 
     const encryptedPassword = encryptPassword(password);
 
-    const nameParts = name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const firstName = first_name;
+    const lastName = last_name;
 
     const result = await executeQuery(
       `INSERT INTO 91wheels_users 
-       (first_name, last_name, email, mobile_phone_number, password, role_id, backend_access_allowed, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [firstName, lastName, email, mobile || '', encryptedPassword, role_id, parseInt(status) || 1]
+       (first_name, last_name, email, password, role_id, backend_access_allowed, added, modified) 
+       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [firstName, lastName, email,encryptedPassword, role_id, parseInt(status) || 1]
     );
-
+    console.log('-----===---==--==--=-=--')
+// return;
     const newUser = await executeQuery(
       `SELECT 
-        u.user_id as id,
-        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.user_id,
+        u.first_name,u.last_name,
         u.email,
-        u.mobile_phone_number as mobile,
         u.backend_access_allowed as status,
         u.role_id,
         r.role_name as role,
-        u.created_at,
-        u.updated_at
+        u.added,
+        u.modified
        FROM 91wheels_users u
        LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
        WHERE u.user_id = ?`,
