@@ -106,4 +106,127 @@ router.get('/me', authMiddleware, (req, res) => {
   });
 });
 
+// OAuth validation endpoint - validates if user is allowed to login
+router.post('/oauth/validate', async (req, res) => {
+  try {
+    const { email, name, googleId, image } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // Domain restriction check
+    const ALLOWED_DOMAIN = '@unicorntechmedia.com';
+    if (!email.endsWith(ALLOWED_DOMAIN)) {
+      return res.status(403).json({
+        success: false,
+        error: `Only ${ALLOWED_DOMAIN} emails are allowed`
+      });
+    }
+
+    // Check if user exists in database (strict allowlist)
+    // Using existing 91wheels_users table structure
+    const users = await executeQuery(
+      `SELECT 
+        u.user_id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.status,
+        r.role_id,
+        r.role_name as role
+      FROM 91wheels_users u
+      LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
+      WHERE u.email = ?`,
+      [email]
+    );
+
+    if (!users || users.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: 'User not found in allowlist. Contact administrator.'
+      });
+    }
+
+    const user = users[0];
+
+    // Check if user is active (using existing status column)
+    if (!user.status) {
+      return res.status(403).json({
+        success: false,
+        error: 'User account is inactive'
+      });
+    }
+
+    // Get user permissions
+    const userWithPermissions = await getUserWithPermissions(user.user_id);
+
+    res.json({
+      success: true,
+      allowed: true,
+      user: {
+        id: userWithPermissions.id,
+        name: userWithPermissions.name,
+        email: userWithPermissions.email,
+        role: userWithPermissions.role,
+        permissions: userWithPermissions.permissions
+      }
+    });
+  } catch (error) {
+    console.error('OAuth validation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Validation failed'
+    });
+  }
+});
+
+// OAuth session endpoint - get user details for authenticated session
+router.post('/oauth/session', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    const users = await executeQuery(
+      `SELECT user_id FROM 91wheels_users WHERE email = ? AND status = 1`,
+      [email]
+    );
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found or inactive'
+      });
+    }
+
+    const userWithPermissions = await getUserWithPermissions(users[0].user_id);
+
+    res.json({
+      success: true,
+      user: {
+        id: userWithPermissions.id,
+        name: userWithPermissions.name,
+        email: userWithPermissions.email,
+        role: userWithPermissions.role,
+        permissions: userWithPermissions.permissions
+      }
+    });
+  } catch (error) {
+    console.error('OAuth session error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get session'
+    });
+  }
+});
+
 module.exports = router;

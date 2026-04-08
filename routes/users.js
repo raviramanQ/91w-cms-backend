@@ -24,9 +24,9 @@ router.get('/', authMiddleware, requirePermission('users', 'read'), async (req, 
     }
 
     if (status === 'active') {
-      whereConditions.push('u.backend_access_allowed = 1');
+      whereConditions.push('u.status = 1');
     } else if (status === 'inactive') {
-      whereConditions.push('u.backend_access_allowed = 0');
+      whereConditions.push('u.status = 0');
     }
 
     if (roleId !== 'all') {
@@ -49,7 +49,7 @@ router.get('/', authMiddleware, requirePermission('users', 'read'), async (req, 
         u.last_name,
         u.email,
         u.mobile_phone_number as mobile,
-        u.backend_access_allowed as status,
+        u.status as status,
         u.role_id,
         r.role_name as role
       FROM 91wheels_users u
@@ -87,7 +87,7 @@ router.get('/:id', authMiddleware, requirePermission('users', 'read'), async (re
         CONCAT(u.first_name, ' ', u.last_name) as name,
         u.email,
         u.mobile_phone_number as mobile,
-        u.backend_access_allowed as status,
+        u.status as status,
         u.role_id,
         r.role_name as role,
         u.created_at,
@@ -171,7 +171,7 @@ router.post('/', authMiddleware, requirePermission('users', 'create'), async (re
 
     const result = await executeQuery(
       `INSERT INTO 91wheels_users 
-       (first_name, last_name, email, password, role_id, backend_access_allowed, added, modified) 
+       (first_name, last_name, email, password, role_id, status, added, modified) 
        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       [firstName, lastName, email,encryptedPassword, role_id, parseInt(status) || 1]
     );
@@ -182,7 +182,7 @@ router.post('/', authMiddleware, requirePermission('users', 'create'), async (re
         u.user_id,
         u.first_name,u.last_name,
         u.email,
-        u.backend_access_allowed as status,
+        u.status as status,
         u.role_id,
         r.role_name as role,
         u.added,
@@ -237,7 +237,7 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
     const lastName = nameParts.slice(1).join(' ') || '';
 
     let query = `UPDATE 91wheels_users 
-                 SET first_name = ?, last_name = ?, email = ?, mobile_phone_number = ?, role_id = ?, backend_access_allowed = ?, updated_at = CURRENT_TIMESTAMP`;
+                 SET first_name = ?, last_name = ?, email = ?, mobile_phone_number = ?, role_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP`;
     let params = [firstName, lastName, email, mobile || '', role_id, parseInt(status) || 1];
 
     if (password) {
@@ -257,7 +257,7 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
         CONCAT(u.first_name, ' ', u.last_name) as name,
         u.email,
         u.mobile_phone_number as mobile,
-        u.backend_access_allowed as status,
+        u.status as status,
         u.role_id,
         r.role_name as role,
         u.created_at,
@@ -286,7 +286,7 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
 router.delete('/:id', authMiddleware, requirePermission('users', 'delete'), async (req, res) => {
   try {
     await executeQuery(
-      'UPDATE 91wheels_users SET backend_access_allowed = 0 WHERE user_id = ?',
+      'UPDATE 91wheels_users SET status = 0 WHERE user_id = ?',
       [req.params.id]
     );
 

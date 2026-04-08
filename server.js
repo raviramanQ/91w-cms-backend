@@ -30,7 +30,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-user-email'],
   exposedHeaders: ['Set-Cookie']
 }));
 app.use(express.json());
@@ -53,6 +53,7 @@ const vehicleTypesRoutes = require('./routes/vehicleTypes');
 const usersRoutes = require('./routes/users');
 const rolesRoutes = require('./routes/roles');
 const uploadRoutes = require('./routes/upload');
+const auditLogsRoutes = require('./routes/auditLogs');
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -61,6 +62,7 @@ app.use('/api/vehicle-types', vehicleTypesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/audit-logs', auditLogsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

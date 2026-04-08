@@ -69,16 +69,35 @@ async function authMiddleware(req, res, next) {
     const token = req.cookies['auth-token'] || 
                   (authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null);
 
-    if (!token) {
+    // Check for OAuth email in headers (sent from frontend)
+    const oauthEmail = req.headers['x-user-email'];
+
+    if (!token && !oauthEmail) {
       return res.status(401).json({ success: false, error: 'Authentication required' });
     }
 
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    let user = null;
+
+    // Try JWT token first
+    if (token) {
+      const decoded = verifyToken(token);
+      if (decoded) {
+        user = await getUserWithPermissions(decoded.userId);
+      }
     }
 
-    const user = await getUserWithPermissions(decoded.userId);
+    // If no user from token, try OAuth email
+    if (!user && oauthEmail) {
+      const users = await executeQuery(
+        'SELECT user_id FROM 91wheels_users WHERE email = ? AND status = 1',
+        [oauthEmail]
+      );
+      
+      if (users && users.length > 0) {
+        user = await getUserWithPermissions(users[0].user_id);
+      }
+    }
+
     if (!user) {
       return res.status(401).json({ success: false, error: 'User not found or inactive' });
     }
