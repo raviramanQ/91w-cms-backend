@@ -210,12 +210,12 @@ router.post('/', authMiddleware, requirePermission('users', 'create'), async (re
 // Update user
 router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (req, res) => {
   try {
-    const { name, email, mobile, password, role_id, status } = req.body;
+    const { first_name,last_name,email, password, role_id, status } = req.body;
 
-    if (!name || !email || !role_id) {
+    if (!first_name || !email || !role_id) {
       return res.status(400).json({
         success: false,
-        error: 'Name, email, and role are required'
+        error: 'first name, email, and role are required'
       });
     }
 
@@ -232,13 +232,13 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
       });
     }
 
-    const nameParts = name.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    const firstName = first_name||'';
+    const lastName = last_name|| '';
 
     let query = `UPDATE 91wheels_users 
-                 SET first_name = ?, last_name = ?, email = ?, mobile_phone_number = ?, role_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP`;
-    let params = [firstName, lastName, email, mobile || '', role_id, parseInt(status) || 1];
+                 SET first_name = ?, last_name = ?, email = ?, role_id = ?, status = ?, modified = CURRENT_TIMESTAMP`;
+    let params = [firstName, lastName, email, role_id, parseInt(status) || 1];
 
     if (password) {
       const encryptedPassword = encryptPassword(password);
@@ -254,14 +254,12 @@ router.put('/:id', authMiddleware, requirePermission('users', 'update'), async (
     const updatedUser = await executeQuery(
       `SELECT 
         u.user_id as id,
-        CONCAT(u.first_name, ' ', u.last_name) as name,
+        u.first_name,u.last_name,
         u.email,
-        u.mobile_phone_number as mobile,
         u.status as status,
         u.role_id,
-        r.role_name as role,
-        u.created_at,
-        u.updated_at
+        u.added,
+        u.modified
        FROM 91wheels_users u
        LEFT JOIN 91wheels_user_roles r ON u.role_id = r.role_id
        WHERE u.user_id = ?`,

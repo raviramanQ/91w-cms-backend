@@ -119,11 +119,15 @@ router.post('/oauth/validate', async (req, res) => {
     }
 
     // Domain restriction check
-    const ALLOWED_DOMAIN = '@unicorntechmedia.com';
-    if (!email.endsWith(ALLOWED_DOMAIN)) {
+  // const ALLOWED_DOMAINS = ['@gmail.com','@utmtk.in','@unicorntechmedia.com'];
+
+    const ALLOWED_DOMAINS = ['@unicorntechmedia.com'];
+    const isAllowedDomain = ALLOWED_DOMAINS.some(domain => email.endsWith(domain));
+    
+    if (!isAllowedDomain) {
       return res.status(403).json({
         success: false,
-        error: `Only ${ALLOWED_DOMAIN} emails are allowed`
+        error: `Only ${ALLOWED_DOMAINS.join(' or ')} emails are allowed`
       });
     }
 
